@@ -190,6 +190,11 @@ body{
   touch-action:manipulation;
 }
 
+.molduraCard:not(.pronta){
+  opacity:.55;
+  pointer-events:none;
+}
+
 .molduraCard.selecionada{
   border-color:var(--rosa);
 }
@@ -400,6 +405,14 @@ body{
   color:#c72d70;
 }
 
+.avisoPrivacidade{
+  margin:12px 5px 0;
+  text-align:center;
+  color:#777;
+  font-size:12px;
+  line-height:1.45;
+}
+
 /* SUCESSO */
 
 .sucessoIcone{
@@ -474,6 +487,10 @@ body{
 .gradeFotos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0}
 .fotoGaleria{padding:0;border:0;border-radius:16px;overflow:hidden;background:#ffe6f1;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,.08)}
 .fotoGaleria img{display:block;width:100%;aspect-ratio:2/3;object-fit:contain}
+.fotoGaleria.carregando{min-height:220px;background:linear-gradient(90deg,#ffe6f1,#fff5f9,#ffe6f1);background-size:200% 100%;animation:pulso 1.2s infinite}
+.fotoGaleria.erro{display:flex;align-items:center;justify-content:center;padding:15px;color:#a42a60;text-align:center}
+@keyframes pulso{to{background-position:-200% 0}}
+#carregarMais{display:none}
 #galeriaStatus{line-height:1.5}
 #visualizadorFoto{border:0;padding: max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));margin:auto;width:100%;max-width:700px;height:100dvh;max-height:100dvh;background:#171717;color:#fff;overflow:auto}
 #visualizadorFoto::backdrop{background:rgba(0,0,0,.94)}
@@ -727,6 +744,10 @@ body{
     💗 SALVAR NA FESTA
   </button>
 
+  <p class="avisoPrivacidade">
+    Ao salvar, a foto será enviada para a galeria compartilhada da festa.
+  </p>
+
 
   <button
     class="btn branco"
@@ -770,8 +791,12 @@ body{
 
   <button
     class="btn claro"
-    onclick="voltarInicio()"
+    onclick="abrirGaleria()"
   >
+    💕 VER FOTO NA GALERIA
+  </button>
+
+  <button class="btn branco" onclick="voltarInicio()">
     🏠 VOLTAR AO INÍCIO
   </button>
 
@@ -790,6 +815,7 @@ body{
   <button id="atualizarFotos" class="btn claro" onclick="abrirGaleria()">↻ ATUALIZAR FOTOS</button>
   <p id="galeriaStatus" class="status" role="status" aria-live="polite"></p>
   <div id="gradeFotos" class="gradeFotos" aria-label="Fotos da festa"></div>
+  <button id="carregarMais" class="btn claro" onclick="carregarMaisFotos()">MAIS FOTOS ↓</button>
   <button class="btn branco" onclick="voltarDaGaleria()">🏠 VOLTAR AO INÍCIO</button>
 </section>
 
@@ -826,6 +852,43 @@ let molduraSelecionada = '';
 let streamAtual = null;
 let cameraAtual = 'user';
 let fotoFinal = '';
+let envioEmAndamento = false;
+let ultimoUploadId = '';
+let uploadPendenteId = '';
+
+const CLIENTE_ID = (function(){
+  try{
+    let id = localStorage.getItem('mariaClienteId');
+    if(!id){
+      id = criarId('cliente');
+      localStorage.setItem('mariaClienteId',id);
+    }
+    return id;
+  }catch(erro){
+    return criarId('cliente');
+  }
+})();
+
+function criarId(prefixo){
+  if(window.crypto && crypto.randomUUID){
+    return prefixo + '_' + crypto.randomUUID().replace(/-/g,'');
+  }
+  return prefixo + '_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+}
+
+document.querySelectorAll('.molduraCard img').forEach(function(imagem){
+  const card = imagem.closest('.molduraCard');
+  function pronta(){
+    if(imagem.naturalWidth){
+      card.classList.add('pronta');
+    }
+  }
+  imagem.addEventListener('load',pronta);
+  imagem.addEventListener('error',function(){
+    card.setAttribute('aria-disabled','true');
+  });
+  pronta();
+});
 
 
 // ======================================================
@@ -886,6 +949,13 @@ function voltarInicio(){
 // ======================================================
 
 function selecionar(numero,elemento){
+
+  const imagem = elemento.querySelector('img');
+
+  if(!imagem.complete || !imagem.naturalWidth){
+    alert('Aguarde a moldura terminar de carregar.');
+    return;
+  }
 
   molduraSelecionada =
     'moldura' + numero + '.png';
@@ -1310,6 +1380,10 @@ function finalizarCaptura(){
       0.88
     );
 
+  envioEmAndamento = false;
+  ultimoUploadId = '';
+  uploadPendenteId = '';
+
 
   document
     .getElementById('preview')
@@ -1365,114 +1439,73 @@ async function refazer(){
 
 async function salvarNaFesta(){
 
-  if(!fotoFinal){
-
-    alert(
-      'Nenhuma foto foi tirada.'
-    );
-
+  if(!fotoFinal || envioEmAndamento || ultimoUploadId){
     return;
   }
 
+  const botao = document.getElementById('salvarBtn');
+  const status = document.getElementById('saveStatus');
+  const uploadId = uploadPendenteId || criarId('foto');
+  uploadPendenteId = uploadId;
 
-  const botao =
-    document.getElementById('salvarBtn');
-
-  const status =
-    document.getElementById('saveStatus');
-
-
+  envioEmAndamento = true;
   botao.disabled = true;
-
-  botao.textContent =
-    '⏳ SALVANDO...';
-
-
-  status.textContent =
-    'Enviando sua foto... 💕';
-
+  botao.textContent = '⏳ SALVANDO...';
+  status.textContent = 'Enviando e confirmando sua foto... 💕';
 
   try{
+    await fetch(API_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({
+        acao:'salvarFoto',
+        imagem:fotoFinal,
+        uploadId:uploadId,
+        clienteId:CLIENTE_ID
+      })
+    });
 
-    /*
-      Usamos text/plain para evitar
-      preflight OPTIONS entre
-      GitHub Pages e Apps Script.
-    */
+    const confirmacao = await aguardarConfirmacao(uploadId);
+    if(!confirmacao.confirmado){
+      throw new Error('O servidor não confirmou o envio.');
+    }
 
-    await fetch(
-      API_URL,
-      {
-
-        method:'POST',
-
-        mode:'no-cors',
-
-        headers:{
-          'Content-Type':
-            'text/plain;charset=utf-8'
-        },
-
-        body:
-          JSON.stringify({
-
-            acao:
-              'salvarFoto',
-
-            imagem:
-              fotoFinal
-
-          })
-      }
-    );
-
-
-    /*
-      Em modo no-cors a resposta
-      é "opaque", portanto o navegador
-      não consegue ler o JSON retornado
-      pelo Apps Script.
-
-      O envio, porém, já foi realizado.
-      Vamos confirmar visualmente no
-      Drive neste primeiro teste.
-    */
-
-
-    status.textContent =
-      '💗 Foto enviada!';
-
-
-    botao.textContent =
-      '✓ FOTO ENVIADA';
-
-
+    ultimoUploadId = uploadId;
+    uploadPendenteId = '';
+    status.textContent = '💗 Foto confirmada no Drive!';
+    botao.textContent = '✓ FOTO ENVIADA';
     setTimeout(function(){
-
       fotoFinal = '';
-
       show('successScreen');
-
-    },700);
-
-
+    },500);
   }catch(erro){
-
-    console.error(
-      'Erro ao enviar:',
-      erro
-    );
-
-
+    console.error('Erro ao enviar:',erro);
     botao.disabled = false;
-
-    botao.textContent =
-      '💗 SALVAR NA FESTA';
-
-
-    status.textContent =
-      '❌ Não foi possível enviar. Tente novamente.';
+    botao.textContent = '💗 TENTAR NOVAMENTE';
+    status.textContent = '❌ Não foi possível confirmar o envio. Tente novamente.';
+  }finally{
+    envioEmAndamento = false;
   }
+}
+
+async function aguardarConfirmacao(uploadId){
+  for(let tentativa = 0; tentativa < 10; tentativa++){
+    await esperar(tentativa === 0 ? 600 : 1200);
+    try{
+      const resposta = await jsonp(
+        API_URL + '?api=status&uploadId=' + encodeURIComponent(uploadId)
+      );
+      if(resposta && resposta.sucesso && resposta.confirmado){
+        return resposta;
+      }
+    }catch(erro){}
+  }
+  return {confirmado:false};
+}
+
+function esperar(ms){
+  return new Promise(resolve => setTimeout(resolve,ms));
 }
 
 
@@ -1616,6 +1649,159 @@ async function baixarFoto(){
   }catch(erro){
     if(erro.name !== 'AbortError') status.textContent = 'Toque e segure a foto acima e escolha salvar imagem.';
   }finally{ botao.disabled = false; }
+}
+
+
+// ======================================================
+// GALERIA PAGINADA E LEVE
+// Estas versões substituem as funções acima sem alterar
+// a câmera, a captura ou o upload já validados.
+// ======================================================
+
+let paginaGaleria = 1;
+let totalGaleria = 0;
+let carregandoPagina = false;
+
+function jsonp(url){
+  return new Promise(function(resolve,reject){
+    const callback = 'mariaApi_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    let terminou = false;
+
+    function finalizar(erro,dados){
+      if(terminou) return;
+      terminou = true;
+      clearTimeout(limite);
+      script.remove();
+      window[callback] = function(){};
+      setTimeout(function(){ delete window[callback]; },300000);
+      if(erro) reject(erro); else resolve(dados);
+    }
+
+    const limite = setTimeout(function(){
+      finalizar(new Error('Tempo esgotado.'));
+    },30000);
+
+    window[callback] = function(dados){ finalizar(null,dados); };
+    script.onerror = function(){ finalizar(new Error('Falha de conexão.')); };
+    script.src = url + (url.indexOf('?') === -1 ? '?' : '&') +
+      'callback=' + callback + '&_=' + Date.now();
+    document.head.appendChild(script);
+  });
+}
+
+function consultarFotos(pagina){
+  return jsonp(API_URL + '?api=fotos&pagina=' + pagina);
+}
+
+function consultarImagem(id){
+  return jsonp(API_URL + '?api=foto&id=' + encodeURIComponent(id));
+}
+
+async function abrirGaleria(){
+  pararCamera();
+  show('galleryScreen');
+  paginaGaleria = 1;
+  totalGaleria = 0;
+  pedidoGaleria++;
+  gal('gradeFotos').replaceChildren();
+  await carregarPaginaGaleria(false);
+}
+
+async function carregarMaisFotos(){
+  if(carregandoPagina) return;
+  paginaGaleria++;
+  await carregarPaginaGaleria(true);
+}
+
+async function carregarPaginaGaleria(adicionar){
+  if(carregandoPagina) return;
+  carregandoPagina = true;
+  const pedido = pedidoGaleria;
+  const grade = gal('gradeFotos');
+  const botaoMais = gal('carregarMais');
+  grade.setAttribute('aria-busy','true');
+  gal('atualizarFotos').disabled = true;
+  botaoMais.disabled = true;
+  botaoMais.style.display = 'none';
+  gal('galeriaStatus').textContent = adicionar
+    ? '⏳ Carregando mais fotos...'
+    : '⏳ Carregando fotos...';
+
+  try{
+    const resposta = await consultarFotos(paginaGaleria);
+    if(pedido !== pedidoGaleria) return;
+    if(!resposta || !resposta.sucesso || !Array.isArray(resposta.fotos)){
+      throw new Error('Resposta inválida.');
+    }
+
+    totalGaleria = Number(resposta.total) || 0;
+    if(!adicionar) grade.replaceChildren();
+
+    const cartoes = resposta.fotos.map(function(foto,indice){
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'fotoGaleria carregando';
+      botao.disabled = true;
+      botao.setAttribute('aria-label','Carregando foto ' + (((paginaGaleria - 1) * 12) + indice + 1));
+      grade.appendChild(botao);
+      return {foto:foto,botao:botao};
+    });
+
+    // Limita a três imagens simultâneas para não sobrecarregar o celular.
+    for(let inicio = 0; inicio < cartoes.length; inicio += 3){
+      await Promise.all(cartoes.slice(inicio,inicio + 3).map(carregarCartaoFoto));
+      if(pedido !== pedidoGaleria) return;
+    }
+
+    gal('galeriaStatus').textContent = totalGaleria
+      ? totalGaleria + ' foto' + (totalGaleria === 1 ? '' : 's') + ' • mais recentes primeiro'
+      : 'Ainda não temos fotos. Que tal tirar a primeira? 💕';
+    botaoMais.style.display = resposta.temMais ? 'block' : 'none';
+  }catch(erro){
+    if(pedido !== pedidoGaleria) return;
+    if(adicionar) paginaGaleria--;
+    gal('galeriaStatus').textContent =
+      'Não foi possível carregar as fotos. Confira sua conexão e tente novamente.';
+  }finally{
+    if(pedido === pedidoGaleria){
+      carregandoPagina = false;
+      grade.setAttribute('aria-busy','false');
+      gal('atualizarFotos').disabled = false;
+      botaoMais.disabled = false;
+    }
+  }
+}
+
+async function carregarCartaoFoto(item){
+  try{
+    const resposta = await consultarImagem(item.foto.id);
+    if(!resposta || !resposta.sucesso ||
+       typeof resposta.imagem !== 'string' ||
+       !/^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(resposta.imagem)){
+      throw new Error('Imagem inválida.');
+    }
+    item.foto.imagem = resposta.imagem;
+    const imagem = new Image();
+    imagem.alt = 'Foto da festa da Maria';
+    imagem.decoding = 'async';
+    imagem.src = resposta.imagem;
+    item.botao.replaceChildren(imagem);
+    item.botao.classList.remove('carregando');
+    item.botao.disabled = false;
+    item.botao.setAttribute('aria-label','Ampliar foto da festa');
+    item.botao.onclick = function(){ ampliarFoto(item.foto); };
+  }catch(erro){
+    item.botao.className = 'fotoGaleria erro';
+    item.botao.textContent = 'Foto indisponível. Toque em atualizar.';
+  }
+}
+
+function voltarDaGaleria(){
+  pedidoGaleria++;
+  carregandoPagina = false;
+  gal('gradeFotos').replaceChildren();
+  voltarInicio();
 }
 
 
