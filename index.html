@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+
+<title>Maria - 6 anos 💗</title>
+
+<style>
+:root{
+  --pink:#ff0877;
+  --pink2:#ff3e98;
+  --light:#fff1f7;
+  --text:#171717;
+}
+
+*{
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:transparent;
+}
+
+html,body{
+  margin:0;
+  width:100%;
+  min-height:100%;
+  font-family:Arial,sans-serif;
+  background:#ffddea;
+  color:var(--text);
+}
+
+body{
+  min-height:100dvh;
+}
+
+.screen{
+  display:none;
+  width:100%;
+  max-width:560px;
+  min-height:100dvh;
+  margin:auto;
+  padding:
+    max(16px,env(safe-area-inset-top))
+    14px
+    max(25px,env(safe-area-inset-bottom));
+  background:#fff6fa;
+}
+
+.screen.active{
+  display:block;
+}
+
+.header{
+  height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+
+.header h2{
+  margin:0;
+  font-size:23px;
+  text-align:center;
+}
+
+.back{
+  position:absolute;
+  left:0;
+  width:45px;
+  height:45px;
+  border:0;
+  background:transparent;
+  font-size:34px;
+}
+
+/* HOME */
+
+.hero{
+  text-align:center;
+  padding-top:15px;
+}
+
+.crown{
+  font-size:46px;
+}
+
+.hero h1{
+  margin:-5px 0 0;
+  font-family:cursive;
+  color:var(--pink);
+  font-size:70px;
+  line-height:1;
+}
+
+.age{
+  display:inline-block;
+  background:var(--pink);
+  color:white;
+  font-size:25px;
+  font-weight:900;
+  padding:7px 28px;
+  border-radius:8px;
+  transform:rotate(-2deg);
+  margin-top:7px;
+}
+
+.intro{
+  margin:30px auto 22px;
+  text-align:center;
+  font-size:21px;
+  font-weight:800;
+  line-height:1.35;
+}
+
+.card{
+  background:white;
+  border-radius:25px;
+  padding:18px;
+  box-shadow:0 8px 30px rgba(255,0,100,.12);
+}
+
+.btn{
+  width:100%;
+  min-height:62px;
+  border:0;
+  border-radius:18px;
+  padding:13px;
+  margin:7px 0;
+  font-size:17px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.pink{
+  color:white;
+  background:linear-gradient(135deg,var(--pink),var(--pink2));
+}
+
+.light{
+  background:#ffe0ec;
+  color:#d80061;
+}
+
+.white{
+  background:white;
+  border:2px solid var(--pink);
+  color:#d80061;
+}
+
+.footer{
+  text-align:center;
+  margin-top:28px;
+  font-family:cursive;
+  font-size:18px;
+}
+
+/* MOLDURAS */
+
+.help{
+  text-align:center;
+  color:#555;
+  font-size:15px;
+  line-height:1.4;
+  margin:8px 5px 17px;
+}
+
+.frames{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.frame{
+  background:white;
+  border:3px solid transparent;
+  border-radius:18px;
+  padding:7px;
+  text-align:center;
+  cursor:pointer;
+}
+
+.frame.selected{
+  border-color:var(--pink);
+  box-shadow:0 0 0 2px rgba(255,0,110,.12);
+}
+
+.frame img{
+  width:100%;
+  display:block;
+  aspect-ratio:2/3;
+  object-fit:contain;
+  border-radius:12px;
+  background:#fafafa;
+}
+
+.frame strong{
+  display:block;
+  padding:8px 2px 3px;
+}
+
+/* CAMERA */
+
+.cameraWrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:2/3;
+  overflow:hidden;
+  background:#111;
+  border-radius:24px;
+  box-shadow:0 8px 25px rgba(0,0,0,.18);
+}
+
+#video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  background:#111;
+}
+
+#frameLive{
+  position:absolute;
+  z-index:5;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:fill;
+  pointer-events:none;
+}
+
+.cameraText{
+  text-align:center;
+  font-size:15px;
+  margin:8px 0 13px;
+}
+
+.shutter{
+  display:block;
+  width:82px;
+  height:82px;
+  border-radius:50%;
+  border:7px solid white;
+  background:var(--pink);
+  box-shadow:
+    0 0 0 3px var(--pink),
+    0 5px 15px rgba(0,0,0,.25);
+  margin:20px auto;
+}
+
+.cameraControls{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+/* PREVIEW */
+
+.previewBox{
+  width:100%;
+  overflow:hidden;
+  border-radius:24px;
+  background:#111;
+}
+
+#canvas{
+  width:100%;
+  height:auto;
+  display:block;
+}
+
+.ok{
+  padding:14px;
+  text-align:center;
+  color:#14833b;
+  font-weight:900;
+  font-size:17px;
+}
+
+@media(min-width:700px){
+  .screen{
+    box-shadow:0 0 30px rgba(0,0,0,.05);
+  }
+}
+</style>
+</head>
+
+<body>
+
+<!-- HOME -->
+
+<section id="home" class="screen active">
+
+  <div class="hero">
+    <div class="crown">👑</div>
+    <h1>Maria!</h1>
+    <div class="age">6 anos</div>
+  </div>
+
+  <div class="intro">
+    Escolha sua moldura<br>
+    e registre esse momento! 💗
+  </div>
+
+  <div class="card">
+
+    <button class="btn pink"
+            onclick="abrirMolduras()">
+      🎀 ESCOLHER MOLDURA
+    </button>
+
+  </div>
+
+  <div class="footer">
+    ♡ ★ ♡<br>
+    Sonhe. Brinque. Seja incrível!
+  </div>
+
+</section>
+
+
+<!-- MOLDURAS -->
+
+<section id="framesScreen" class="screen">
+
+  <div class="header">
+    <button class="back"
+            onclick="show('home')">‹</button>
+    <h2>Escolha sua moldura</h2>
+  </div>
+
+  <div class="help">
+    Escolha primeiro sua moldura.<br>
+    Ela aparecerá ao vivo enquanto você tira a foto. 💗
+  </div>
+
+  <div class="frames">
+
+    <div class="frame"
+         onclick="selecionar(1,this)">
+      <img src="moldura1.png" alt="Moldura 1">
+      <strong>Moldura 1</strong>
+    </div>
+
+    <div class="frame"
+         onclick="selecionar(2,this)">
+      <img src="moldura2.png" alt="Moldura 2">
+      <strong>Moldura 2</strong>
+    </div>
+
+    <div class="frame"
+         onclick="selecionar(3,this)">
+      <img src="moldura3.png" alt="Moldura 3">
+      <strong>Moldura 3</strong>
+    </div>
+
+    <div class="frame"
+         onclick="selecionar(4,this)">
+      <img src="moldura4.png" alt="Moldura 4">
+      <strong>Moldura 4</strong>
+    </div>
+
+    <div class="frame"
+         onclick="selecionar(5,this)">
+      <img src="moldura5.png" alt="Moldura 5">
+      <strong>Moldura 5</strong>
+    </div>
+
+    <div class="frame"
+         onclick="selecionar(6,this)">
+      <img src="moldura6.png" alt="Moldura 6">
+      <strong>Moldura 6</strong>
+    </div>
+
+    <div class="frame"
+         onclick="selecionar(7,this)">
+      <img src="moldura7.png" alt="Moldura 7">
+      <strong>Moldura 7</strong>
+    </div>
+
+  </div>
+
+  <button id="continueBtn"
+          class="btn pink"
+          style="display:none;margin-top:14px"
+          onclick="abrirCamera()">
+    📸 ABRIR CÂMERA
+  </button>
+
+</section>
+
+
+<!-- CAMERA -->
+
+<section id="cameraScreen" class="screen">
+
+  <div class="header">
+    <button class="back"
+            onclick="sairCamera()">‹</button>
+    <h2>Enquadre sua foto</h2>
+  </div>
+
+  <div class="cameraText">
+    Posicione-se dentro da moldura 💗
+  </div>
+
+  <div class="cameraWrap">
+
+    <video id="video"
+           autoplay
+           muted
+           playsinline>
+    </video>
+
+    <img id="frameLive"
+         alt="Moldura">
+
+  </div>
+
+  <button class="shutter"
+          onclick="fotografar()"
+          aria-label="Tirar foto">
+  </button>
+
+  <div class="cameraControls">
+
+    <button class="btn light"
+            onclick="trocarCamera()">
+      🔄 VIRAR
+    </button>
+
+    <button class="btn white"
+            onclick="sairCamera()">
+      CANCELAR
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- PREVIEW -->
+
+<section id="previewScreen" class="screen">
+
+  <div class="header">
+    <button class="back"
+            onclick="refazer()">‹</button>
+    <h2>Prévia</h2>
+  </div>
+
+  <div class="previewBox">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="ok">
+    ✓ Foto capturada com a moldura!
+  </div>
+
+  <button class="btn pink"
+          onclick="refazer()">
+    📸 TIRAR OUTRA
+  </button>
+
+  <button class="btn white"
+          onclick="voltarInicio()">
+    FINALIZAR TESTE
+  </button>
+
+</section>
+
+
+<script>
+
+let molduraSelecionada = null;
+let stream = null;
+let facingMode = 'user';
+
+function show(id){
+
+  document.querySelectorAll('.screen')
+    .forEach(el => el.classList.remove('active'));
+
+  document.getElementById(id)
+    .classList.add('active');
+
+  window.scrollTo(0,0);
+}
+
+
+function abrirMolduras(){
+  show('framesScreen');
+}
+
+
+function selecionar(numero,elemento){
+
+  molduraSelecionada =
+    'moldura' + numero + '.png';
+
+  document.querySelectorAll('.frame')
+    .forEach(el => el.classList.remove('selected'));
+
+  elemento.classList.add('selected');
+
+  document.getElementById('continueBtn')
+    .style.display='block';
+}
+
+
+/* ================================
+   CAMERA
+================================ */
+
+async function abrirCamera(){
+
+  if(!molduraSelecionada){
+    alert('Escolha uma moldura primeiro.');
+    return;
+  }
+
+  show('cameraScreen');
+
+  document.getElementById('frameLive').src =
+    molduraSelecionada;
+
+  await iniciarCamera();
+}
+
+
+async function iniciarCamera(){
+
+  pararCamera();
+
+  if(
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  ){
+    alert(
+      'Este navegador não oferece acesso direto à câmera.'
+    );
+    return;
+  }
+
+  try{
+
+    stream =
+      await navigator.mediaDevices.getUserMedia({
+        video:{
+          facingMode:{
+            ideal:facingMode
+          }
+        },
+        audio:false
+      });
+
+    const video =
+      document.getElementById('video');
+
+    video.srcObject=stream;
+
+    await video.play();
+
+  }catch(error){
+
+    console.error(error);
+
+    alert(
+      'Não foi possível acessar a câmera.\n\n' +
+      'Permita o acesso à câmera no navegador e tente novamente.\n\n' +
+      'Erro: ' + error.name
+    );
+  }
+}
+
+
+function pararCamera(){
+
+  if(stream){
+
+    stream.getTracks()
+      .forEach(track => track.stop());
+
+    stream=null;
+  }
+
+  const video =
+    document.getElementById('video');
+
+  if(video){
+    video.srcObject=null;
+  }
+}
+
+
+async function trocarCamera(){
+
+  facingMode =
+    facingMode === 'user'
+      ? 'environment'
+      : 'user';
+
+  await iniciarCamera();
+}
+
+
+function sairCamera(){
+
+  pararCamera();
+
+  show('framesScreen');
+}
+
+
+/* ================================
+   FOTO
+================================ */
+
+function fotografar(){
+
+  const video =
+    document.getElementById('video');
+
+  if(!video.videoWidth){
+    alert('A câmera ainda está iniciando.');
+    return;
+  }
+
+  const canvas =
+    document.getElementById('canvas');
+
+  /*
+    Formato vertical padronizado.
+  */
+
+  const W=1200;
+  const H=1800;
+
+  canvas.width=W;
+  canvas.height=H;
+
+  const ctx =
+    canvas.getContext('2d');
+
+
+  /*
+    Faz a imagem da câmera preencher
+    todo o quadro sem deformação.
+  */
+
+  const vw=video.videoWidth;
+  const vh=video.videoHeight;
+
+  const escala =
+    Math.max(W/vw,H/vh);
+
+  const dw=vw*escala;
+  const dh=vh*escala;
+
+  const dx=(W-dw)/2;
+  const dy=(H-dh)/2;
+
+  ctx.drawImage(
+    video,
+    dx,
+    dy,
+    dw,
+    dh
+  );
+
+
+  /*
+    Aplica a mesma moldura sobre
+    a fotografia capturada.
+  */
+
+  const frame=new Image();
+
+  frame.onload=function(){
+
+    ctx.drawImage(
+      frame,
+      0,
+      0,
+      W,
+      H
+    );
+
+    pararCamera();
+
+    show('previewScreen');
+  };
+
+  frame.onerror=function(){
+    alert('Erro ao aplicar a moldura.');
+  };
+
+  frame.src=molduraSelecionada;
+}
+
+
+function refazer(){
+
+  show('cameraScreen');
+
+  document.getElementById('frameLive').src =
+    molduraSelecionada;
+
+  iniciarCamera();
+}
+
+
+function voltarInicio(){
+
+  pararCamera();
+
+  molduraSelecionada=null;
+
+  document.querySelectorAll('.frame')
+    .forEach(el => el.classList.remove('selected'));
+
+  document.getElementById('continueBtn')
+    .style.display='none';
+
+  show('home');
+}
+
+
+window.addEventListener(
+  'beforeunload',
+  pararCamera
+);
+
+</script>
+
+</body>
+</html>
