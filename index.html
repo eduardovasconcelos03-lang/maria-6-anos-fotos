@@ -408,6 +408,21 @@ body{
     gap:9px;
   }
 }
+/* Galeria: estilos limitados às novas telas. */
+.gradeFotos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0}
+.fotoGaleria{padding:0;border:0;border-radius:16px;overflow:hidden;background:#ffe6f1;cursor:pointer;box-shadow:0 4px 15px rgba(0,0,0,.08)}
+.fotoGaleria img{display:block;width:100%;aspect-ratio:2/3;object-fit:contain}
+#galeriaStatus{line-height:1.5}
+#visualizadorFoto{border:0;padding: max(14px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom));margin:auto;width:100%;max-width:700px;height:100dvh;max-height:100dvh;background:#171717;color:#fff;overflow:auto}
+#visualizadorFoto::backdrop{background:rgba(0,0,0,.94)}
+#visualizadorFoto[open]{display:flex;flex-direction:column;align-items:center;gap:10px}
+.fotoTopo{display:flex;justify-content:space-between;align-items:center;width:100%;flex-shrink:0}
+.fotoTopo .voltar{cursor:pointer;flex-shrink:0}
+#fotoAmpliada{display:block;max-width:100%;width:auto;height:55dvh;object-fit:contain;flex-shrink:0}
+.fotoAcoes{width:100%;max-width:480px;text-align:center}
+.fotoDica,#baixarStatus{font-size:13px;line-height:1.4;margin:10px 0}
+#galleryScreen button:focus-visible,#visualizadorFoto button:focus-visible{outline:3px solid var(--rosa);outline-offset:3px}
+
 </style>
 </head>
 
@@ -442,7 +457,7 @@ body{
 
     <button
       class="btn claro"
-      onclick="avisoGaleria()"
+      onclick="abrirGaleria()"
     >
       💕 VER FOTOS DA FESTA
     </button>
@@ -687,6 +702,35 @@ body{
 
 </section>
 
+
+<!-- GALERIA DA FESTA -->
+<section id="galleryScreen" class="tela">
+  <div class="topo">
+    <button class="voltar" onclick="voltarDaGaleria()" aria-label="Voltar ao início">←</button>
+    <div class="topoTexto">
+      <h2>Fotos da festa 💕</h2>
+      <p>Cada sorriso faz parte dessa história!</p>
+    </div>
+  </div>
+  <button id="atualizarFotos" class="btn claro" onclick="abrirGaleria()">↻ ATUALIZAR FOTOS</button>
+  <p id="galeriaStatus" class="status" role="status" aria-live="polite"></p>
+  <div id="gradeFotos" class="gradeFotos" aria-label="Fotos da festa"></div>
+  <button class="btn branco" onclick="voltarDaGaleria()">🏠 VOLTAR AO INÍCIO</button>
+</section>
+
+<dialog id="visualizadorFoto" aria-label="Foto ampliada">
+  <div class="fotoTopo">
+    <span>Maria • 6 anos 💕</span>
+    <button class="voltar" onclick="fecharFoto()" aria-label="Fechar foto">✕</button>
+  </div>
+  <img id="fotoAmpliada" alt="Foto ampliada da festa da Maria">
+  <div class="fotoAcoes">
+    <button id="baixarFotoBtn" class="btn rosa" onclick="baixarFoto()">💗 SALVAR FOTO NO CELULAR</button>
+    <p class="fotoDica">Você também pode tocar e segurar a foto para salvar.</p>
+    <p id="baixarStatus" role="status" aria-live="polite"></p>
+    <button class="btn branco" onclick="fecharFoto()">VOLTAR À GALERIA</button>
+  </div>
+</dialog>
 
 <canvas
   id="canvas"
@@ -1264,13 +1308,132 @@ function novaFoto(){
 // GALERIA
 // ======================================================
 
-function avisoGaleria(){
+// Galeria JSONP: usa a mesma API_URL do upload já existente.
+let pedidoGaleria = 0;
+let fotoAberta = null;
+let focoAntesDaFoto = null;
+const gal = id => document.getElementById(id);
 
-  alert(
-    '💕 A galeria será ativada na próxima etapa.\n\n' +
-    'Primeiro vamos confirmar que as fotos estão chegando corretamente ao Drive.'
-  );
+function consultarFotos(){
+  return new Promise((resolve,reject) => {
+    const callback = 'mariaGaleria_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const script = document.createElement('script');
+    let concluido = false;
+    function terminar(erro,dados){
+      if(concluido) return;
+      concluido = true;
+      clearTimeout(limite);
+      script.remove();
+      // Aceita uma resposta tardia sem gerar erro após o timeout.
+      window[callback] = function(){};
+      setTimeout(() => { delete window[callback]; },300000);
+      if(erro) reject(erro); else resolve(dados);
+    }
+    const limite = setTimeout(() => terminar(new Error('Tempo esgotado')),90000);
+    window[callback] = dados => terminar(null,dados);
+    script.onerror = () => terminar(new Error('Falha de conexão'));
+    script.src = API_URL + '?api=fotos&callback=' + callback + '&_=' + Date.now();
+    document.head.appendChild(script);
+  });
 }
+
+async function abrirGaleria(){
+  pararCamera();
+  show('galleryScreen');
+  const pedido = ++pedidoGaleria;
+  const grade = gal('gradeFotos');
+  grade.replaceChildren();
+  grade.setAttribute('aria-busy','true');
+  gal('galeriaStatus').textContent = '⏳ Carregando fotos...';
+  gal('atualizarFotos').disabled = true;
+  try{
+    const resposta = await consultarFotos();
+    if(pedido !== pedidoGaleria) return;
+    if(!resposta || resposta.sucesso !== true || !Array.isArray(resposta.fotos)) throw new Error('Resposta inválida');
+    // listarFotos() do backend já ordena por criação, das mais recentes às antigas.
+    // A API implantada retorna id, nome e imagem, sem o campo de data.
+    const fotos = resposta.fotos;
+    if(fotos.some(f => !f || typeof f.imagem !== 'string' || !/^data:image\/(jpeg|jpg|png|webp|gif);base64,/i.test(f.imagem))) throw new Error('Imagem inválida');
+    gal('galeriaStatus').textContent = fotos.length
+      ? fotos.length + ' foto' + (fotos.length === 1 ? '' : 's') + ' • mais recentes primeiro'
+      : 'Ainda não temos fotos. Que tal tirar a primeira? 💕';
+    fotos.forEach((foto,indice) => {
+      const botao = document.createElement('button');
+      botao.type = 'button'; botao.className = 'fotoGaleria';
+      botao.setAttribute('aria-label','Ampliar foto ' + (indice + 1));
+      const imagem = new Image();
+      imagem.alt = 'Foto ' + (indice + 1) + ' da festa da Maria';
+      imagem.loading = 'lazy'; imagem.decoding = 'async'; imagem.src = foto.imagem;
+      imagem.onerror = () => { imagem.alt = 'Foto indisponível. Atualize a galeria.'; };
+      botao.appendChild(imagem);
+      botao.onclick = () => ampliarFoto(foto);
+      grade.appendChild(botao);
+    });
+  }catch(erro){
+    if(pedido !== pedidoGaleria) return;
+    grade.replaceChildren();
+    gal('galeriaStatus').textContent = 'Não foi possível carregar as fotos. Confira sua conexão e toque em ATUALIZAR FOTOS para tentar novamente.';
+  }finally{
+    if(pedido === pedidoGaleria){
+      grade.setAttribute('aria-busy','false');
+      gal('atualizarFotos').disabled = false;
+    }
+  }
+}
+
+function voltarDaGaleria(){
+  pedidoGaleria++; // Uma resposta antiga não deve atualizar a próxima visita.
+  gal('gradeFotos').replaceChildren();
+  voltarInicio();
+}
+
+function ampliarFoto(foto){
+  fotoAberta = foto;
+  focoAntesDaFoto = document.activeElement;
+  gal('fotoAmpliada').src = foto.imagem;
+  gal('baixarStatus').textContent = '';
+  gal('visualizadorFoto').showModal();
+}
+
+function fecharFoto(){ gal('visualizadorFoto').close(); }
+gal('visualizadorFoto').addEventListener('close',() => {
+  fotoAberta = null;
+  gal('fotoAmpliada').removeAttribute('src');
+  if(focoAntesDaFoto) focoAntesDaFoto.focus();
+});
+gal('visualizadorFoto').addEventListener('click',evento => {
+  if(evento.target === gal('visualizadorFoto')) fecharFoto();
+});
+
+async function baixarFoto(){
+  if(!fotoAberta) return;
+  const botao = gal('baixarFotoBtn');
+  const status = gal('baixarStatus');
+  botao.disabled = true;
+  try{
+    const partes = fotoAberta.imagem.split(',');
+    const tipo = partes[0].match(/data:([^;]+)/)[1];
+    const bytes = Uint8Array.from(atob(partes[1]),letra => letra.charCodeAt(0));
+    const extensao = ({'image/png':'png','image/webp':'webp','image/gif':'gif'})[tipo] || 'jpg';
+    const nome = String(fotoAberta.nome || 'Maria_6_anos').replace(/\.[^.]+$/,'').replace(/[^a-zA-Z0-9_-]/g,'_') + '.' + extensao;
+    const arquivo = new File([bytes],nome,{type:tipo});
+    // O menu nativo permite Salvar imagem/Salvar em Arquivos nos celulares compatíveis.
+    if(navigator.canShare && navigator.canShare({files:[arquivo]})){
+      await navigator.share({files:[arquivo],title:'Maria - 6 anos 💕'});
+      status.textContent = 'Use Salvar imagem ou Salvar em Arquivos no menu do celular.';
+    }else{
+      const url = URL.createObjectURL(arquivo);
+      const link = document.createElement('a');
+      link.href = url; link.download = nome;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url),60000);
+      status.textContent = 'Download solicitado. Confira os arquivos baixados do seu aparelho.';
+    }
+  }catch(erro){
+    if(erro.name !== 'AbortError') status.textContent = 'Toque e segure a foto acima e escolha salvar imagem.';
+  }finally{ botao.disabled = false; }
+}
+
 
 
 // ======================================================
